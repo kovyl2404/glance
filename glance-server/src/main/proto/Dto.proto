@@ -1,0 +1,6 @@
+package ru.vkovalev.glance.server.io.dto;
+
+message LoginMessage {
+    required string id = 1;
+    required string password = 2;
+}

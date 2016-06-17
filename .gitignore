@@ -1,0 +1,9 @@
+.gradle/
+gradle/
+.idea/
+*/generated
+build/
+gradlew
+gradlew.bat
+*.swp
+

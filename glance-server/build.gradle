@@ -1,0 +1,46 @@
+group 'ru.vkovalev'
+version '0.1-SNAPSHOT'
+
+apply plugin: 'application'
+apply plugin: 'com.google.protobuf'
+
+mainClassName = 'ru.vkovalev.glance.server.ServerMain'
+
+def generatedSourcesDir = 'generated'
+
+sourceSets {
+	generated {
+		java {
+			srcDir "${generatedSourcesDir}/java"
+		}
+	}
+}
+
+buildscript {
+
+    repositories {
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.7.7'
+    }
+}
+
+dependencies {
+    compile group: 'com.google.protobuf', name: 'protobuf-java', version: '2.6.1'
+}
+
+protobuf {
+
+    generatedFilesBaseDir = "${project.projectDir}/${generatedSourcesDir}"
+
+}
+
+jar {
+    manifest {
+        attributes(
+            'Main-Class': 'ru.vkovalev.glance.server.ServerMain'
+        )
+    }
+}
