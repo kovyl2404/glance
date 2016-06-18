@@ -5,10 +5,12 @@ import org.junit.Before;
 import org.junit.Test;
 import ru.vkovalev.glance.server.ChannelCallback;
 import ru.vkovalev.glance.server.io.NioServer;
+import ru.vkovalev.glance.server.threading.ThreadCreationException;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.HashSet;
 import java.util.Set;
@@ -21,26 +23,35 @@ import static org.junit.Assert.assertEquals;
  */
 public class NioServerTest {
 
-    public NioServerTest() throws IOException {
-        connectedClients = new HashSet<>();
-        nioServer = new NioServer(listenPort);
-        nioServer.setChannelCallbackFactory( () -> new MockChannelCallback() );
+    public NioServerTest() throws IOException, ThreadCreationException {
+        counter = 0;
+        nioServer = new NioServer(listenPort, () -> new MockChannelCallback());
     }
 
     @Test
-    public void acceptAndCloseConnection() throws IOException {
+    public void acceptAndCloseConnection() throws IOException, InterruptedException {
 
-        final Socket clientSocket = new Socket();
-        try {
+        try (final Socket clientSocket = new Socket()) {
             clientSocket.connect(new InetSocketAddress(listenPort));
-            syncWith(connectedClients);
-            assertEquals(1, connectedClients.size());
+            synchronized (counter) {
+                counter.wait();
+            }
+            assertEquals(1, counter.intValue() );
         }
-        finally {
-            clientSocket.close();
+
+        synchronized (counter) {
+            counter.wait();
         }
-        syncWith(connectedClients);
-        assertEquals(0, connectedClients.size());
+        assertEquals(0, counter.intValue() );
+    }
+
+    @Test
+    public void handleData() throws IOException {
+        try (final Socket clientSocket = new Socket()) {
+            clientSocket.connect(new InetSocketAddress(listenPort));
+
+        }
+
     }
 
     @Before
@@ -53,46 +64,34 @@ public class NioServerTest {
         nioServer.close();
     }
 
-    private class MockChannelCallback implements ChannelCallback<SocketChannel> {
+    private class MockChannelCallback implements ChannelCallback {
+
 
         @Override
-        public void channelOpen(SocketChannel socketChannel) {
-            connectedClients.add(socketChannel);
-            notifyFor(connectedClients);
+        public void channelOpen() {
+            synchronized (counter) {
+                counter++;
+                counter.notifyAll();
+            }
         }
 
         @Override
-        public void channelClose(SocketChannel socketChannel) {
-            try {
-                socketChannel.close();
-            }
-            catch (IOException e) {
-
-            }
-            connectedClients.remove(socketChannel);
-            notifyFor(connectedClients);
-        }
-    }
-
-    private static void syncWith(Object lock) {
-        synchronized (lock) {
-            try {
-                lock.wait(1000);
-            }
-            catch (InterruptedException e) {
-
+        public void channelClose() {
+            synchronized (counter) {
+                counter--;
+                counter.notifyAll();
             }
         }
-    }
 
-    private static void notifyFor(Object lock) {
-        synchronized (lock) {
-            lock.notifyAll();
+        @Override
+        public void channelData(ByteBuffer data) {
+
         }
+
     }
 
-    private final Set<SocketChannel> connectedClients;
+
+    private Integer counter = 0;
     private final NioServer nioServer;
-
     private static final int listenPort = 2345;
 }
