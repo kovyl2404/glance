@@ -1,6 +1,7 @@
 .gradle/
 gradle/
 .idea/
+*.iml
 */generated
 build/
 gradlew
